@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f6feb">
+<link rel="manifest" href="manifest.json">
+<title>Mis cuentas</title>
+<style>
+  :root {
+    --bg: #f5f7fa; --card: #ffffff; --text: #1b1f24; --muted: #667085;
+    --accent: #1f6feb; --ok: #1a7f37; --warn: #b54708; --border: #e4e7ec;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1419; --card: #1a2029; --text: #e6e9ee; --muted: #98a2b3; --border: #2b3441; }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh; display: flex; justify-content: center; padding: 16px;
+  }
+  main { width: 100%; max-width: 460px; display: flex; flex-direction: column; gap: 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
+  h1 { font-size: 1.15rem; margin: 0; }
+  h2 { font-size: 1rem; margin: 0 0 4px; }
+  .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .estado { font-size: .8rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; }
+  .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); }
+
+  #cuentas { display: flex; flex-direction: column; gap: 10px; }
+  .cta {
+    background: var(--card); border: 2px solid var(--border); border-radius: 16px;
+    padding: 14px 16px; cursor: pointer;
+  }
+  .cta.sel { border-color: var(--accent); }
+  .cta-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .nombre { font-weight: 600; font-size: 1.05rem; overflow-wrap: anywhere; }
+  .monto { font-size: 1.7rem; font-weight: 700; letter-spacing: -.02em; white-space: nowrap; }
+  .det { color: var(--muted); font-size: .85rem; margin-top: 3px; }
+
+  label { display: block; font-size: .85rem; color: var(--muted); margin: 12px 0 4px; }
+  input {
+    width: 100%; font-size: 1.1rem; padding: 12px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text);
+  }
+  .hint { font-size: .78rem; color: var(--muted); margin-top: 4px; }
+  button { font-family: inherit; cursor: pointer; }
+  button:disabled { opacity: .55; cursor: default; }
+  .primario {
+    margin-top: 16px; width: 100%; font-size: 1.1rem; font-weight: 600;
+    padding: 15px; border: 0; border-radius: 12px; background: var(--accent); color: #fff;
+  }
+  .primario:active { transform: scale(.98); }
+  .sec {
+    padding: 10px 14px; font-size: .95rem; border-radius: 10px;
+    border: 1px solid var(--border); background: transparent; color: var(--text);
+  }
+  .link { background: none; border: 0; color: var(--accent); font-size: .9rem; padding: 4px 0; }
+  .peligro { color: var(--warn); }
+  .fila { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  .fila .primario { margin-top: 0; width: auto; flex: 1; }
+  .msg { min-height: 1.2em; font-size: .85rem; color: var(--ok); margin-top: 8px; }
+  .msg.err { color: var(--warn); }
+  .pend div { padding: 6px 0; border-top: 1px solid var(--border); display: flex; justify-content: space-between; gap: 8px; font-size: .85rem; color: var(--muted); }
+  .pend div:first-child { border-top: 0; }
+  .vacio { text-align: center; color: var(--muted); }
+  .vacio .primario { margin-top: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <section class="card head">
+    <h1>Mis cuentas</h1>
+    <div class="estado"><span class="dot" id="dot"></span><span id="estado">Iniciando…</span></div>
+  </section>
+
+  <section class="card vacio" id="vacio" hidden>
+    <div>Aún no hay cuentas. Crea la primera para empezar (por ejemplo, una tarjeta de crédito con su día de corte y de pago).</div>
+    <button class="primario" id="btnPrimera" type="button">Crear mi primera cuenta</button>
+  </section>
+
+  <section id="cuentas" aria-label="Cuentas"></section>
+
+  <section class="card" id="regCard" hidden>
+    <div class="head">
+      <h2 id="regTitulo">Registrar</h2>
+      <button class="link" id="btnEditar" type="button">Editar cuenta</button>
+    </div>
+    <label for="usuario">Tu nombre</label>
+    <input id="usuario" type="text" placeholder="Ej. Ana" autocomplete="name">
+    <label for="monto">Cantidad a sumar</label>
+    <input id="monto" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00">
+    <button class="primario" id="btnSumar" type="button">Sumar</button>
+    <div class="msg" id="msg"></div>
+  </section>
+
+  <div id="barraNueva" style="text-align:center" hidden>
+    <button class="sec" id="btnNueva" type="button">+ Nueva cuenta</button>
+  </div>
+
+  <section class="card" id="formCard" hidden>
+    <h2 id="formTitulo">Nueva cuenta</h2>
+    <label for="fNombre">Nombre</label>
+    <input id="fNombre" type="text" maxlength="40" placeholder="Ej. Visa Banco X, Luz, Quincenal">
+    <label for="fCortes">Día(s) de corte</label>
+    <input id="fCortes" type="text" placeholder="Ej. 25">
+    <div class="hint">Es el último día del periodo de compras. Si hay dos cortes al mes, sepáralos con coma (ej. 4, 19).</div>
+    <label for="fPagos">Día(s) de pago <span style="opacity:.7">(opcional)</span></label>
+    <input id="fPagos" type="text" placeholder="Ej. 15">
+    <div class="hint">Día en que debes pagar. Si hay dos pagos al mes, sepáralos con coma (ej. 5, 20).</div>
+    <div class="fila">
+      <button class="primario" id="btnGuardarCta" type="button">Guardar</button>
+      <button class="sec" id="btnCancelarCta" type="button">Cancelar</button>
+    </div>
+    <div class="fila" id="filaOcultar" hidden>
+      <button class="link peligro" id="btnOcultar" type="button">Ocultar esta cuenta</button>
+    </div>
+    <div class="msg err" id="formMsg"></div>
+  </section>
+
+  <section class="card pend" id="pendCard" hidden>
+    <h2>Pendientes de enviar</h2>
+    <div id="pendientes"></div>
+  </section>
+</main>
+
+<script>
+// ====== CONFIGURACIÓN ======
+// Pega aquí la URL de tu aplicación web de Google Apps Script (termina en /exec)
+const SCRIPT_URL = https://script.google.com/macros/s/AKfycbw0qlwYV8YbLJpnwij3WIq2slNWbkoBh_KTyt-rZXpP4wEvNo8mZIh8N_-S09DPdAnR/exec;
+const MONEDA = "Q";            // Cambia el símbolo si lo necesitas
+// ===========================
+
+const K = { cola: "cuenta2.cola", estado: "cuenta2.estado", sel: "cuenta2.sel", user: "cuenta2.usuario" };
+const MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+
+const $ = (id) => document.getElementById(id);
+const pad = (n) => String(n).padStart(2, "0");
+const redondear = (n) => Math.round(n * 100) / 100;
+const fmt = (n) => MONEDA + " " + Number(n).toLocaleString("es-GT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+const leer = (k, def) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch (e) { return def; } };
+const guardar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+
+// ---------- Periodos (misma lógica que Code.gs) ----------
+function diasEnMes(y, m) { return new Date(Date.UTC(y, m, 0)).getUTCDate(); }   // m de 1 a 12
+function sumaMes(y, m, k) { const t = y * 12 + (m - 1) + k; return [Math.floor(t / 12), (t % 12) + 1]; }
+function aIso(dt) { return dt.getUTCFullYear() + "-" + pad(dt.getUTCMonth() + 1) + "-" + pad(dt.getUTCDate()); }
+
+// Fechas AAAA-MM-DD de los días indicados, desde el mes (m+desde) hasta el mes (m+hasta)
+function fechasCandidatas(dias, y, m, desde, hasta) {
+  const salida = [];
+  for (let k = desde; k <= hasta; k++) {
+    const ym = sumaMes(y, m, k);
+    dias.forEach((d) => salida.push(ym[0] + "-" + pad(ym[1]) + "-" + pad(Math.min(d, diasEnMes(ym[0], ym[1])))));
+  }
+  const unicas = [];
+  salida.sort().forEach((f) => { if (unicas[unicas.length - 1] !== f) unicas.push(f); });
+  return unicas;
+}
+
+// hoy = "AAAA-MM-DD". El periodo termina en el primer corte >= hoy y empieza al día siguiente del corte anterior.
+function periodoDe(hoy, cortes, pagos) {
+  const p = hoy.split("-").map(Number);
+  const cortesF = fechasCandidatas(cortes, p[0], p[1], -1, 1);
+  const fin = cortesF.filter((f) => f >= hoy)[0];
+  const previos = cortesF.filter((f) => f < fin);
+  const prev = previos[previos.length - 1].split("-").map(Number);
+  const inicio = aIso(new Date(Date.UTC(prev[0], prev[1] - 1, prev[2] + 1)));
+  let pago = null;
+  if (pagos && pagos.length) {
+    const f = fin.split("-").map(Number);
+    const pagosF = fechasCandidatas(pagos, f[0], f[1], 0, 2);
+    pago = pagosF.filter((x) => x > fin)[0] || null;
+  }
+  return { inicio: inicio, fin: fin, pago: pago };
+}
+
+// ---------- Fechas para mostrar ----------
+function hoyLocal() { const d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+function fechaCorta(iso) { const p = iso.split("-").map(Number); return p[2] + " " + MESES[p[1] - 1]; }
+function diasHasta(a, b) {
+  const x = a.split("-").map(Number), y = b.split("-").map(Number);
+  return Math.round((Date.UTC(y[0], y[1] - 1, y[2]) - Date.UTC(x[0], x[1] - 1, x[2])) / 86400000);
+}
+function enDias(n) { return n <= 0 ? "hoy" : n === 1 ? "mañana" : "en " + n + " días"; }
+
+// ---------- Estado local ----------
+function cuentasCache() { return (leer(K.estado, { cuentas: [] }).cuentas) || []; }
+function cuentaSel() {
+  const cuentas = cuentasCache();
+  const id = leer(K.sel, null);
+  return cuentas.filter((c) => c.id === id)[0] || cuentas[0] || null;
+}
+function idUnico() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+}
+function urlConfigurada() { return SCRIPT_URL && SCRIPT_URL.indexOf("PEGA_AQUI") !== 0; }
+
+// Total mostrado = total del servidor (si es del mismo periodo) + lo registrado aquí y aún sin enviar
+function vistaCuenta(c, hoy, cola) {
+  const p = periodoDe(hoy, c.cortes, c.pagos);
+  let total = c.inicio === p.inicio ? Number(c.total) : 0;
+  cola.forEach((e) => { if (e.cuentaId === c.id && e.dia >= p.inicio && e.dia <= p.fin) total += Number(e.monto); });
+  return { p: p, total: redondear(total) };
+}
+
+// ---------- Pantalla ----------
+let formAbierto = false;
+let editandoId = null;
+let sincronizando = false;
+
+function pintar() {
+  const hoy = hoyLocal();
+  const cola = leer(K.cola, []);
+  const cuentas = cuentasCache();
+  const sel = cuentaSel();
+
+  $("cuentas").innerHTML = cuentas.map((c) => {
+    const v = vistaCuenta(c, hoy, cola);
+    const pago = v.p.pago ? "<div class='det'>Pago: " + fechaCorta(v.p.pago) + " · " + enDias(diasHasta(hoy, v.p.pago)) + "</div>" : "";
+    return "<div class='cta" + (sel && sel.id === c.id ? " sel" : "") + "' data-id='" + esc(c.id) + "'>" +
+      "<div class='cta-top'><span class='nombre'>" + esc(c.nombre) + "</span><span class='monto'>" + fmt(v.total) + "</span></div>" +
+      "<div class='det'>Periodo: " + fechaCorta(v.p.inicio) + " – " + fechaCorta(v.p.fin) + "</div>" +
+      "<div class='det'>Corte: " + fechaCorta(v.p.fin) + " · " + enDias(diasHasta(hoy, v.p.fin)) + "</div>" + pago + "</div>";
+  }).join("");
+
+  $("vacio").hidden = cuentas.length > 0 || formAbierto;
+  $("regCard").hidden = !sel || formAbierto;
+  $("barraNueva").hidden = formAbierto || cuentas.length === 0;
+  $("formCard").hidden = !formAbierto;
+  if (sel) $("regTitulo").textContent = "Registrar en: " + sel.nombre;
+
+  $("pendCard").hidden = cola.length === 0;
+  $("pendientes").innerHTML = cola.map((e) => {
+    const d = new Date(e.ts);
+    const c = cuentas.filter((x) => x.id === e.cuentaId)[0];
+    return "<div><span>" + pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes()) +
+      " · " + esc(c ? c.nombre : "") + (e.usuario ? " · " + esc(e.usuario) : "") + "</span><span>" + fmt(e.monto) + "</span></div>";
+  }).join("");
+
+  const dot = $("dot");
+  if (!urlConfigurada()) { dot.className = "dot warn"; $("estado").textContent = "Falta configurar la URL"; }
+  else if (!navigator.onLine) { dot.className = "dot warn"; $("estado").textContent = "Sin internet" + (cola.length ? " · " + cola.length + " pendiente(s)" : ""); }
+  else if (cola.length) { dot.className = "dot warn"; $("estado").textContent = cola.length + " pendiente(s) de enviar"; }
+  else { dot.className = "dot ok"; $("estado").textContent = "Todo sincronizado"; }
+}
+
+function mensaje(txt, error) {
+  const m = $("msg"); m.textContent = txt; m.className = "msg" + (error ? " err" : "");
+  if (txt) setTimeout(() => { if (m.textContent === txt) m.textContent = ""; }, 3500);
+}
+
+// ---------- Comunicación con Google Sheets ----------
+async function pedirEstado() {
+  const r = await fetch(SCRIPT_URL + "?t=" + Date.now());
+  const resp = await r.json();
+  if (!resp.ok) throw new Error(resp.error || "Error del servidor");
+  return resp;
+}
+async function enviarServidor(cuerpo) {
+  // text/plain evita el "preflight" de CORS con Apps Script
+  const r = await fetch(SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(cuerpo) });
+  const resp = await r.json();
+  if (!resp.ok) throw new Error(resp.error || "Error del servidor");
+  return resp;
+}
+function recibirEstado(resp) { guardar(K.estado, { cuentas: resp.cuentas || [] }); }
+
+async function sincronizar() {
+  if (sincronizando) return;
+  if (!urlConfigurada()) { pintar(); return; }
+  if (!navigator.onLine) { pintar(); return; }
+  sincronizando = true;
+  try {
+    const pendientes = leer(K.cola, []);
+    let resp;
+    if (pendientes.length) {
+      resp = await enviarServidor({ accion: "registrar", entries: pendientes });
+      const ids = new Set(pendientes.map((e) => e.id));
+      guardar(K.cola, leer(K.cola, []).filter((e) => !ids.has(e.id)));
+    } else {
+      resp = await pedirEstado();
+    }
+    recibirEstado(resp);
+  } catch (err) {
+    console.warn("Sincronización fallida:", err);
+    $("estado").textContent = "No se pudo sincronizar, se reintentará";
+  } finally {
+    sincronizando = false;
+    pintar();
+  }
+}
+
+// ---------- Sumar ----------
+function sumar() {
+  const sel = cuentaSel();
+  if (!sel) return;
+  const monto = parseFloat($("monto").value);
+  if (!isFinite(monto) || monto <= 0) { mensaje("Escribe una cantidad mayor que 0", true); return; }
+  const usuario = $("usuario").value.trim();
+  guardar(K.user, usuario);
+  const cola = leer(K.cola, []);
+  cola.push({ id: idUnico(), ts: new Date().toISOString(), dia: hoyLocal(), monto: redondear(monto), usuario: usuario, cuentaId: sel.id });
+  guardar(K.cola, cola);
+  $("monto").value = "";
+  mensaje("Sumado " + fmt(monto) + " a " + sel.nombre + " ✓");
+  pintar();
+  sincronizar();
+}
+
+// ---------- Formulario de cuenta ----------
+function abrirForm(id) {
+  editandoId = id || null;
+  const c = id ? cuentasCache().filter((x) => x.id === id)[0] : null;
+  $("formTitulo").textContent = c ? "Editar cuenta" : "Nueva cuenta";
+  $("fNombre").value = c ? c.nombre : "";
+  $("fCortes").value = c ? c.cortes.join(", ") : "";
+  $("fPagos").value = c ? (c.pagos || []).join(", ") : "";
+  $("filaOcultar").hidden = !c;
+  $("formMsg").textContent = "";
+  formAbierto = true;
+  pintar();
+  $("fNombre").focus();
+}
+function cerrarForm() { formAbierto = false; editandoId = null; pintar(); }
+
+function tokensDias(txt) { return String(txt || "").split(/[^0-9]+/).filter(Boolean).map(Number); }
+
+async function guardarCuentaForm() {
+  const msg = $("formMsg");
+  const nombre = $("fNombre").value.trim();
+  const cortes = tokensDias($("fCortes").value), pagos = tokensDias($("fPagos").value);
+  if (!nombre) { msg.textContent = "Escribe un nombre para la cuenta"; return; }
+  if (!cortes.length) { msg.textContent = "Indica al menos un día de corte (de 1 a 31)"; return; }
+  if (cortes.concat(pagos).some((n) => n < 1 || n > 31)) { msg.textContent = "Los días deben estar entre 1 y 31"; return; }
+  if (!urlConfigurada()) { msg.textContent = "Primero configura la URL de Google Sheets en index.html"; return; }
+  if (!navigator.onLine) { msg.textContent = "Necesitas internet para guardar cambios en las cuentas"; return; }
+  const btn = $("btnGuardarCta"); btn.disabled = true; msg.textContent = "";
+  try {
+    const resp = await enviarServidor({ accion: "guardarCuenta", cuenta: { id: editandoId, nombre: nombre, cortes: cortes, pagos: pagos } });
+    recibirEstado(resp);
+    if (resp.cuentaId) guardar(K.sel, resp.cuentaId);
+    cerrarForm();
+  } catch (err) {
+    msg.textContent = "No se pudo guardar: " + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function ocultarCuentaForm() {
+  if (!editandoId) return;
+  if (!confirm("¿Ocultar esta cuenta? Los registros se conservan en la hoja de Google Sheets.")) return;
+  const msg = $("formMsg");
+  if (!navigator.onLine) { msg.textContent = "Necesitas internet para ocultar la cuenta"; return; }
+  try {
+    const resp = await enviarServidor({ accion: "ocultarCuenta", id: editandoId });
+    recibirEstado(resp);
+    cerrarForm();
+  } catch (err) {
+    msg.textContent = "No se pudo ocultar: " + err.message;
+  }
+}
+
+// ---------- Eventos ----------
+$("btnSumar").addEventListener("click", sumar);
+$("monto").addEventListener("keydown", (e) => { if (e.key === "Enter") sumar(); });
+$("cuentas").addEventListener("click", (e) => {
+  const el = e.target.closest("[data-id]");
+  if (!el) return;
+  guardar(K.sel, el.getAttribute("data-id"));
+  pintar();
+});
+$("btnNueva").addEventListener("click", () => abrirForm(null));
+$("btnPrimera").addEventListener("click", () => abrirForm(null));
+$("btnEditar").addEventListener("click", () => { const s = cuentaSel(); if (s) abrirForm(s.id); });
+$("btnGuardarCta").addEventListener("click", guardarCuentaForm);
+$("btnCancelarCta").addEventListener("click", cerrarForm);
+$("btnOcultar").addEventListener("click", ocultarCuentaForm);
+window.addEventListener("online", sincronizar);
+window.addEventListener("offline", pintar);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { pintar(); sincronizar(); } });
+setInterval(() => { if (!formAbierto) sincronizar(); }, 60000);
+
+$("usuario").value = leer(K.user, "");
+pintar();
+sincronizar();
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+</script>
+</body>
+</html>
